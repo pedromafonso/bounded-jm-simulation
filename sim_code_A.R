@@ -1,26 +1,28 @@
 rm(list = ls())
 # scenario C
 ref <- "A001"
-seed <- 2023
+seed <- 2024
 if(dir.exists(ref)) {
   cat(paste0("The directory ", ref, " already exists."))
 } else {
   dir.create(ref)
 }
 file.copy("simA_code.R", paste0(ref, "/sim_code_", ref, ".R"))
-rep <- 100 # replicas
+rep <- 500 # replicas
 set.seed(seed); it_s <- sample(seq_len(rep), 1)
-est <- cvg <- matrix(NA, nrow = rep, ncol = 15) # estimates and coverage matrices
-colnames(est) <- colnames(est) <- c("Intercept1", "Time1", 
-                                    "Intercept2", "Time2", 
-                                    "Group1", "Group2", "Group3",
-                                    "Assoc11", "Assoc12", # strata 1
-                                    "Assoc21", "Assoc22", "Assoc23",  # strata 2
-                                    "Assoc31", "Assoc32", "Assoc33")  # strata 3
+est <- cvg <- psd <- matrix(NA, nrow = rep, ncol = 15) # estimates, coverage, and posterior sd matrices
+colnames(est) <- colnames(cvg) <- colnames(psd) <- c("Intercept1", "Time1",
+                                                     "Intercept2", "Time2", 
+                                                     "Group1", "Group2", "Group3",
+                                                     "Assoc11", "Assoc12", # strata 1
+                                                     "Assoc21", "Assoc22", "Assoc23",  # strata 2
+                                                     "Assoc31", "Assoc32", "Assoc33")  # strata 3
+rtime <- rep(NA, rep)
 summ <- list("prop_tevent1" = rep(NA, rep), # proportion of competing risk 1
              "prop_tevent2" = rep(NA, rep), # proportion of competing risk 2
              "prop_tcensor" = rep(NA, rep), # proportion of censoring
              "med_revents" = rep(NA, rep), # median number of recurrent events per individual
+             "tot_revents" = rep(NA, rep), # total number of recurrent events per individual
              "N1" = rep(NA, rep), # total number of long 1 obs
              "N2" = rep(NA, rep), # total number of long 2 obs
              "med_ni1" = rep(NA, rep), # median number of long 1 obs per individual
@@ -138,6 +140,7 @@ for (it in seq_len(rep)){
   }
   ids <- unlist(ids)
   summ$med_revents[it] <- median(table(ids) - 1) # summary(c(table(ids) - 1))
+  summ$tot_revents[it] <- sum(table(ids) - 1)
   rec <- rec[ids, ]
   rec$tstart <- unlist(tstarts)
   rec$tstop <- unlist(tstops)
@@ -205,9 +208,11 @@ for (it in seq_len(rep)){
     dev.off()
   }
   if(it != rep) remove(m1, m2, ph)
+  rtime[it] <- jm$running_time["elapsed"]
   nms <- c("betas1", "betas2", "gammas", "alphas", "alphaF")
   ord <- c(1:8, 11,  9, 12, 14, 10, 13, 15)
   est[it, ] <- unlist(jm$statistics$Mean[nms])[ord]
+  psd[it, ] <- unlist(jm$statistics$SD[nms])[ord]
   low <- unlist(jm$statistics$CI_low[nms])[ord]
   upp <- unlist(jm$statistics$CI_upp[nms])[ord]
   cvg[it, ] <- true <= upp & true >= low
@@ -258,9 +263,15 @@ for (it in seq_len(rep)){
 toc <- Sys.time(); print(toc)
 diff <- difftime(toc, tic); print(diff)
 cvg <- colMeans(cvg)
-bias <- colMeans(est) - true 
+bias <- colMeans(est) - true
+colMax <- function(x) apply(x, 2, max) # column max
+bias2 <- colMax(abs(sweep(est, 2, true)))
 mse <- colMeans(sweep(est, 2, true)^2)
+colSDs <- function(x) apply(x, 2, sd) # column sd
+ese <- colSDs(sweep(est, 2, colMeans(est))^2) # empirical standard error
+psd <- colMeans(psd) # mean estimated SDev
 res <- list(cvg = cvg, est = est, bias = bias, mse = mse, true = true, 
+            ese = ese, psd = psd, bias2 = bias2, rtime = rtime,
             time = diff, summ = summ)
 saveRDS(res, file = paste0(ref, "/res_", ref,".rds"))
 

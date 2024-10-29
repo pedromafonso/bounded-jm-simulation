@@ -1,11 +1,11 @@
 rm(list = ls())
 # data =========================================================================
 ## scenario A ==================================================================
-ref_A <- "A001"
+ref_A <- "A2001"
 res_A  <- readRDS(paste0(ref_A, "/res_", ref_A,".rds"))
 jm_A <- readRDS(paste0(ref_A, "/jm", ref_A, ".rds"))
 ## scenario B ==================================================================
-ref_B <- "B001"
+ref_B <- "B2001"
 res_B  <- readRDS(paste0(ref_B, "/res_", ref_B,".rds"))
 jm_b_B <- readRDS(paste0(ref_B, "/jm_b_", ref_B, ".rds"))
 jm_g_B <- readRDS(paste0(ref_B, "/jm_g_", ref_B, ".rds"))
@@ -39,13 +39,25 @@ hist2 <- function(v1, v2 = v1, lwd1 = 1.5, lwd2 = 1.5, col1 = 1, col2 = 2) {
 }
 # tab main document ============================================================
 ## scenario A ==================================================================
-round(res_A$bias, 3) # bias
-round(res_A$mse, 3) # mse
+round(colMeans(res_A$est), 3)[c(1:5, 8:9, 6, 10:12, 7, 13:15)] # estimate
+round(res_A$bias, 3)[c(1:5, 8:9, 6, 10:12, 7, 13:15)] # bias
+round(res_A$mse, 3)[c(1:5, 8:9, 6, 10:12, 7, 13:15)] # mse
+round(res_A$ese, 3)[c(1:5, 8:9, 6, 10:12, 7, 13:15)] # ese
+round(res_A$psd, 3)[c(1:5, 8:9, 6, 10:12, 7, 13:15)] # sd
+round(res_A$cvg, 3)[c(1:5, 8:9, 6, 10:12, 7, 13:15)] # cvg
 ## scenario B ==================================================================
+round(colMeans(res_B$est$b), 3) # estimates beta
 round(res_B$bias$b, 3) # bias beta
-round(res_B$bias$g, 3) # bias Gaussian
 round(res_B$mse$b, 3) # mse beta
+round(res_B$ese$b, 3) # ese beta
+round(res_B$psd$b, 3) # sd beta
+round(res_B$cvg$b, 3) # cvg beta
+round(res_B$bias$g, 3) # bias Gaussian
+round(colMeans(res_B$est$g), 3) # estimates Gaussian
 round(res_B$mse$g, 3) # mse Gaussian
+round(res_B$ese$g, 3) # ese Gaussian
+round(res_B$psd$g, 3) # sd Gaussian
+round(res_B$cvg$g, 3) # cvg Gaussian
 # tab web material =============================================================
 ## scenario A ==================================================================
 iqr(res_A$summ$N1) # number of observations 1
@@ -173,7 +185,7 @@ cairo_ps(paste0("tcp_A.eps"), height = 12 * 0.8, width = 12 * 0.8, family = "hel
   plot(NA, xlim = 0:1, ylim = 0:1, bty = "n", xaxt = "n", yaxt = "n",
        xaxs = "i", yaxs = "i")
   text(x = 0.999, y = 0, adj = c(0, 0), cex = 0.9, srt = 90,
-       labels = paste0("Dataset: 80/100"))
+       labels = paste0("Dataset: 66/500"))
 }
 dev.off()
 ## scenario B ==================================================================
@@ -242,7 +254,7 @@ cairo_ps(paste0("tcp_B.eps"), height = 6 * 0.8, width = 12 * 0.8, family = "helv
        xaxs = "i", yaxs = "i")
   mtext("Gaussian", side = 3, at = 0.5, line = -1.5, cex = 0.9)
   text(x = 0.999, y = 0, adj = c(0, 0), cex = 0.9, srt = 90,
-       labels = paste0("Dataset: 80/100"))
+       labels = paste0("Dataset: 66/500"))
   par(fig = c(0, 1, 0.5, 1), mar = c(0, 0, 0, 0), new = TRUE)
   plot(NA, xlim = 0:1, ylim = 0:1, bty = "n", xaxt = "n", yaxt = "n",
        xaxs = "i", yaxs = "i")
@@ -260,16 +272,22 @@ names <- c(expression(beta["1,0"]), expression(beta["1,t"]),
            expression(alpha["1"]^upsilon),
            expression(alpha["2,1"]^"T"), expression(alpha["2,2"]^"T"),
            expression(alpha["2"]^upsilon))
-rep <- 100
+rep <- 500
 true <- c(2, -1.5, 0.8, -0.05, 0.25, 0.25, 0.25, -2, -1, -2, -1, 1, -2, -1, 1)
-cairo_ps(paste0("pmean_A.eps"), height = 8 * 0.8, width = 12 * 0.8, family = "helvetica")
+cairo_ps(paste0("pmean_A.eps"), height = 12 * 0.8, width = 12 * 0.8, family = "helvetica")
 {
-  par(mfrow = c(2, 8))
+  par(mfrow = c(3, 5))
+  par(mar = c(5.1, 4.1 + 0.5, 4.1, 2.1 + 1.75))
   for(i in seq_len(15)){
-    boxplot(res_A$est[, i], main = names[i], xlab = "", ylab = "Posterior mean",
+    boxplot(res_A$est[, i], main = names[i], xlab = "", ylab = "",
             frame = FALSE, xaxt = "n", yaxt = "n")
     box(lwd = 0.5)
-    axis(2, col.axis = 1, col = NA, col.ticks = 1, las = 2)
+    axis(2, col.axis = 1, col = NA, col.ticks = 1, las = 2,
+         at = axTicks(2), labels = round(axTicks(2), 2))
+    axis(4, col.axis = 1, col = NA, col.ticks = 1, las = 2,
+         at = axTicks(4), labels = round(axTicks(4) - true[i], 2))
+    mtext("Posterior mean", side = 2, cex = 0.65, line = 3)
+    mtext("Error", side = 4, cex = 0.65, line = 3)
     abline(h = true[i], col = 1, lwd = 1.5)
   }
 }
@@ -277,19 +295,25 @@ dev.off()
 ## scenario B ==================================================================
 names <- c(expression(beta["1,0"]), expression(beta["1,t"]), 
            expression(gamma["1"]^"T"), expression(alpha["1,1"]^"T"))
-rep <- 100
+rep <- 500
 true <- c(2, -1, 0.25, -2)
 cairo_ps(paste0("pmean_B.eps"), height = 4 * 0.8, width = 12 * 0.8, family = "helvetica")
 {
   par(mfrow = c(1, 4))
+  par(mar = c(5.1, 4.1 + 0.5, 4.1, 2.1 + 1.75))
   for(i in seq_len(4)){
     boxplot(c(res_B$est$b[, i], res_B$est$g[, i]) ~ rep(1:2, each = rep), 
-            main = names[i], xlab = "", ylab = "Posterior mean",
+            main = names[i], xlab = "", ylab = "",
             frame = FALSE, xaxt = "n", yaxt = "n")
     box(lwd = 0.5)
-    axis(2, col.axis = 1, col = NA, col.ticks = 1, las = 2)
+    axis(2, col.axis = 1, col = NA, col.ticks = 1, las = 2,
+         at = axTicks(2), labels = round(axTicks(2), 2))
+    axis(4, col.axis = 1, col = NA, col.ticks = 1, las = 2,
+         at = axTicks(4), labels = round(axTicks(4) - true[i], 2))
     axis(1, at = 1:2, labels = c("Beta\nmodel", "Gaussian\nmodel"), col.axis = 1, 
          col = NA, col.ticks = 1, padj = 0.5)
+    mtext("Posterior mean", side = 2, cex = 0.65, line = 3)
+    mtext("Error", side = 4, cex = 0.65, line = 3)
     abline(h = true[i], col = 1, lwd = 1.5)
   }
 }

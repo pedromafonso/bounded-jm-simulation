@@ -1,19 +1,21 @@
 rm(list = ls())
 # scenario B
-ref <- "B002"
-seed <- 2023
+ref <- "B001"
+seed <- 2024
 if(dir.exists(ref)) {
   cat(paste0("The directory ", ref, " already exists."))
 } else {
   dir.create(ref)
 }
 file.copy("simB_code.R", paste0(ref, "/sim_code_", ref, ".R"))
-rep <- 100 # replicas
+rep <- 500 # replicas
 set.seed(seed); it_s <- sample(seq_len(rep), 1)
-est <- cvg <- list(g = matrix(NA, nrow = rep, ncol = 4), # estimates and coverage matrices
-                   b = matrix(NA, nrow = rep, ncol = 4)) # [g]aussian and [b]eta models
+est <- cvg <- psd <- list(g = matrix(NA, nrow = rep, ncol = 4), # estimates, coverage and posterior sd matrices
+                          b = matrix(NA, nrow = rep, ncol = 4)) # [g]aussian and [b]eta models
 colnames(est$g) <- colnames(est$b) <- c("Intercept", "Time", "Group", "Assoc")
 colnames(cvg$g) <- colnames(cvg$b) <- c("Intercept", "Time", "Group", "Assoc")
+colnames(psd$g) <- colnames(psd$b) <- c("Intercept", "Time", "Group", "Assoc")
+rtime <- list(g = rep(NA, rep), b = rep(NA, rep))
 summ <- list("prop_tevent" = rep(NA, rep), # proportion of terminal events
              "prop_tcensor" = rep(NA, rep), # proportion of censoring
              "N" = rep(NA, rep), # total number of longitudinal obs
@@ -111,7 +113,9 @@ for (it in seq_len(rep)){
     }
     dev.off()
   }
+  rtime$b[it] <- jm_b$running_time["elapsed"]
   est$b[it, ] <- c(fixef(jm_b)[[1]], coef(jm_b)$gammas, coef(jm_b)$association)
+  psd$b[it, ] <- unlist(jm_b$statistics$SD[c("betas1", "gammas", "alphas")])
   low_b <- unlist(jm_b$statistics$CI_low[c("betas1", "gammas", "alphas")])
   upp_b <- unlist(jm_b$statistics$CI_upp[c("betas1", "gammas", "alphas")])
   cvg$b[it, ] <- true <= upp_b & true >= low_b
@@ -132,7 +136,9 @@ for (it in seq_len(rep)){
     }
     dev.off()
   }
+  rtime$g[it] <- jm_g$running_time["elapsed"]
   est$g[it, ] <- c(fixef(jm_g)[[1]], coef(jm_g)$gammas, coef(jm_g)$association)
+  psd$g[it, ] <- unlist(jm_g$statistics$SD[c("betas1", "gammas", "alphas")])
   low_g <- unlist(jm_g$statistics$CI_low[c("betas1", "gammas", "alphas")])
   upp_g <- unlist(jm_g$statistics$CI_upp[c("betas1", "gammas", "alphas")])
   cvg$g[it, ] <- true <= upp_g & true >= low_g
@@ -170,9 +176,15 @@ for (it in seq_len(rep)){
 toc <- Sys.time(); print(toc)
 diff <- difftime(toc, tic); print(diff)
 cvg <- lapply(cvg, colMeans)
-bias <- lapply(est, function(x) colMeans(x) - true) 
+bias <- lapply(est, function(x) colMeans(x) - true)
+colMax <- function(x) apply(x, 2, max) # column max
+bias2 <- lapply(est, function(x) colMax(abs(sweep(x, 2, true))))
 mse <- lapply(est, function(x) colMeans(sweep(x, 2, true)^2))
+colSDs <- function(x) apply(x, 2, sd) # column sd
+ese <- lapply(est, function(x) colSDs(sweep(x, 2, colMeans(x))^2)) # empirical standard error
+psd <- lapply(psd, colMeans) # mean estimated SDev
 res <- list(cvg = cvg, est = est, bias = bias, mse = mse, true = true, 
+            ese = ese, psd = psd, bias2 = bias2, rtime = rtime,
             time = diff, summ = summ)
 saveRDS(res, file = paste0(ref, "/res_", ref,".rds"))
 
