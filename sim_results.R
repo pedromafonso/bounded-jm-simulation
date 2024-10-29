@@ -318,3 +318,5 @@ cairo_ps(paste0("pmean_B.eps"), height = 4 * 0.8, width = 12 * 0.8, family = "he
   }
 }
 dev.off()
+# computational time ===========================================================
+round(quantile(res_A$rtime / 60, prob = c(0.25, 0.5, 0.75)), 2)
