@@ -1,5 +1,5 @@
 rm(list = ls())
-# scenario C
+# scenario A
 ref <- "A001"
 seed <- 2024
 if(dir.exists(ref)) {
